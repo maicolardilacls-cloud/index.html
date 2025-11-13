@@ -1,5 +1,4 @@
-<!doctype html><!doctype html><!doctype html><!doctype html><!doctype html><!doctype html><!doctype html><!doctype html>
-<!doctype html>
+<!doctype html><!doctype html><!doctype html><!doctype html><!doctype html><!doctype html><!doctype html><!doctype html><!doctype html>
 <html lang="es">
 <head>
 <meta charset="utf-8" />
@@ -346,7 +345,7 @@
       // slow reaction -> small incident chance
       incidents++; incidentsEl.textContent = incidents;
       logMessage('Reacción lenta: la fatiga afecta tus tiempos de respuesta. Considera siesta o pausas.', true);
-      setFatiga(fatiga + 8);
+      setFatiga(fatiga - 5);
     } else {
       logMessage('Buena reacción. Mantén buenas prácticas de sueño.');
       // small reduction in fatiga por éxito
@@ -405,11 +404,5 @@ function abrirGuia(){
 
 </body>
 </html>
-
-
-
-
-
-
 
 
