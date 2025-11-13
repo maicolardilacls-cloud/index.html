@@ -1,4 +1,4 @@
-<!doctype html><!doctype html><!doctype html>
+<!doctype html><!doctype html><!doctype html><!doctype html>
 <html lang="es">
 <head>
 <meta charset="utf-8" />
@@ -44,7 +44,7 @@
         <div class="bar" title="Fatiga actual">
           <div id="fatigaMeter" class="meter" style="width:10%"></div>
         </div>
-        <div class="small" id="fatigaValue">Fatiga: 10%</div>
+        <div class="small" id="fatigaValue">Fatiga: 30%</div>
       </div>
 
       <div style="width:260px">
@@ -104,7 +104,7 @@
 <script>
 (function(){
   // Estado del juego
-  let fatiga = 10; // 0-100
+  let fatiga = 30; // 0-100
   let timeMinutes = 0;
   let tasks = [];
   let completed = 0;
@@ -194,9 +194,9 @@
     const t = tasks[idx];
     if(!t) return;
     // Probabilidad de error depende de fatiga y dificultad
-    const baseFail = 0.02 * t.difficulty; // base
-    const fatigaFactor = fatiga/100 * 0.5; // hasta +50% prob
-    const probFail = Math.min(0.9, baseFail + fatigaFactor);
+    const baseFail = 0.2 * t.difficulty; // base
+    const fatigaFactor = fatiga/100 * 1.5; // hasta +50% prob
+    const probFail = Math.min(2.9, baseFail + fatigaFactor);
     const rnd = Math.random();
     // simulate time spent
     timeMinutes += 10 * t.difficulty;
@@ -220,7 +220,7 @@
 
   function advanceTimeEffects(minutes){
   // 🔥 Aumenta la fatiga más rápido con el paso del tiempo
-  const inc = 1.2 * (minutes/10) * (1 + Math.random()*0.8); // antes era 0.4
+  const inc = 15.2 * (minutes/10) * (1 + Math.random()*0.8); // antes era 0.4
   setFatiga(fatiga + inc);
 
   // 🔁 Las tareas se vencen más rápido
