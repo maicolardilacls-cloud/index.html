@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Turno en la Noche - Prototipo</title>
+<style>
+  body{font-family:Inter,system-ui,Segoe UI,Arial;margin:0;background:#0f172a;color:#e6eef8;display:flex;flex-direction:column;align-items:center;padding:20px}
+  .container{max-width:920px;width:100%}
+  header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+  h1{font-size:20px;margin:0}
+  .game{background:#081028;padding:18px;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,.5)}
+  .toprow{display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+  .bar{background:#0b1624;border-radius:8px;padding:6px;width:100%}
+  .meter{height:18px;border-radius:8px;background:linear-gradient(90deg,#f97316,#ef4444);width:0%}
+  .label{font-size:13px}
+  .controls{display:flex;gap:8px}
+  button{background:#1f2937;border:0;color:#e6eef8;padding:8px 10px;border-radius:8px;cursor:pointer}
+  button:active{transform:translateY(1px)}
+  .tasks{margin-top:12px}
+  .task{background:#07122b;padding:10px;border-radius:8px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+  .minigame{margin-top:12px;padding:10px;background:#07112a;border-radius:8px;display:flex;flex-direction:column;align-items:center}
+  .alert{background:#1a2a3a;padding:8px;border-radius:8px;margin-top:10px}
+  .footer{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .scoreboard{background:#071228;padding:10px;border-radius:8px;margin-top:12px}
+  .small{font-size:13px;color:#9fb0c3}
+  .danger{color:#ffb4b4}
+  .success{color:#b6f0c6}
+  .hidden{display:none}
+  .big{font-size:24px;font-weight:700}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Turno en la Noche — Prototipo educativo</h1>
+    <div class="small">Objetivo: completa tareas sin causar incidentes</div>
+  </header>
+
+  <div class="game" id="game">
+    <div class="toprow">
+      <div style="flex:1">
+        <div class="label">Fatiga</div>
+        <div class="bar" title="Fatiga actual">
+          <div id="fatigaMeter" class="meter" style="width:10%"></div>
+        </div>
+        <div class="small" id="fatigaValue">Fatiga: 10%</div>
+      </div>
+
+      <div style="width:260px">
+        <div class="label">Recursos</div>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:6px">
+          <button id="btnCafe">Tomar café ☕</button>
+          <button id="btnSiesta">Siesta 20 min 💤</button>
+          <button id="btnPausa">Pausa 5 min ⏸️</button>
+        </div>
+        <div class="small" style="margin-top:6px">
+          Café restante: <span id="cafeCount">3</span> |
+          Siestas: <span id="siestaCount">2</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="tasks">
+      <div class="label">Tareas del turno</div>
+      <div id="tasksList"></div>
+    </div>
+
+    <div class="minigame" id="minigame">
+      <div class="label">Minijuego: Prueba de reacción</div>
+      <div style="margin-top:8px">
+        <div class="big" id="minigameMsg">Presiona "Iniciar prueba" para comenzar</div>
+        <div style="margin-top:8px;display:flex;gap:8px">
+          <button id="btnStartTest">Iniciar prueba</button>
+          <button id="btnPress" disabled>Presiona aquí cuando veas GO</button>
+        </div>
+        <div class="small" id="reactionResult"></div>
+      </div>
+    </div>
+
+    <div class="alert" id="message">Bienvenido: administra tu energía y evita incidentes. Una fatiga mayor aumenta la probabilidad de errores.</div>
+
+    <div class="footer">
+      <div class="small">Turno: <span id="turnNum">1</span></div>
+      <div class="small">Tareas completadas: <span id="completed">0</span></div>
+      <div class="small">Incidentes: <span id="incidents">0</span></div>
+      <div style="flex:1"></div>
+      <button id="advanceTime">Avanzar 10 min ⏭️</button>
+      <button id="resetGame">Reiniciar</button>
+    </div>
+
+    <div class="scoreboard" id="scoreboard">
+      <div class="small">Reporte rápido</div>
+      <div>Fatiga promedio: <span id="fatAvg">—</span></div>
+      <div>Tasa de fallos: <span id="failRate">—</span></div>
+    </div>
+  </div>
+
+  <div style="margin-top:16px;color:#9fb0c3">
+    Consejos: siesta corta (20–30 min) reduce fatiga sin afectar productividad; la cafeína ayuda a corto plazo; priorizar pausas y buena iluminación.
+  </div>
+</div>
+
+<script>
+(function(){
+  // Estado del juego
+  let fatiga = 10; // 0-100
+  let timeMinutes = 0;
+  let tasks = [];
+  let completed = 0;
+  let incidents = 0;
+  let cafeCount = 3;
+  let siestaCount = 2;
+  let totalFatigaSamples = 0;
+  let fatigaSum = 0;
+  let turn = 1;
+
+  const fatigaMeter = document.getElementById('fatigaMeter');
+  const fatigaValue = document.getElementById('fatigaValue');
+  const btnCafe = document.getElementById('btnCafe');
+  const btnSiesta = document.getElementById('btnSiesta');
+  const btnPausa = document.getElementById('btnPausa');
+  const tasksList = document.getElementById('tasksList');
+  const message = document.getElementById('message');
+  const completedEl = document.getElementById('completed');
+  const incidentsEl = document.getElementById('incidents');
+  const cafeCountEl = document.getElementById('cafeCount');
+  const siestaCountEl = document.getElementById('siestaCount');
+  const advanceBtn = document.getElementById('advanceTime');
+  const resetBtn = document.getElementById('resetGame');
+  const turnNum = document.getElementById('turnNum');
+  const fatAvgEl = document.getElementById('fatAvg');
+  const failRate = document.getElementById('failRate');
+
+  // Minijuego
+  const btnStartTest = document.getElementById('btnStartTest');
+  const btnPress = document.getElementById('btnPress');
+  const minigameMsg = document.getElementById('minigameMsg');
+  const reactionResult = document.getElementById('reactionResult');
+  let testPending = false;
+  let goTime = 0;
+  let waitingForGo = false;
+
+  function setFatiga(v){
+    fatiga = Math.max(0, Math.min(100, Math.round(v)));
+    fatigaMeter.style.width = fatiga + '%';
+    fatigaValue.textContent = 'Fatiga: ' + fatiga + '%';
+    // accumulate sample
+    fatigaSum += fatiga;
+    totalFatigaSamples++;
+    updateScoreboard();
+  }
+
+  function updateScoreboard(){
+    const avg = totalFatigaSamples ? (fatigaSum/totalFatigaSamples).toFixed(0)+'%' : '—';
+    fatAvgEl.textContent = avg;
+    const fails = (incidents + completed) ? Math.round( (incidents / (incidents+completed))*100 ) + '%' : '—';
+    failRate.textContent = fails;
+  }
+
+  function logMessage(txt, urgent=false){
+    message.textContent = txt;
+    message.style.background = urgent ? '#4c1f1f' : '#123246';
+  }
+
+  function spawnTasks(n=3){
+    tasks = [];
+    for(let i=0;i<n;i++){
+      const difficulty = 1 + Math.floor(Math.random()*3); // 1..3
+      const timeLimit = 20 + difficulty*10; // minutes
+      tasks.push({id:Date.now()+i,name:'Tarea ' + (i+1), difficulty, timeLeft:timeLimit, started:false});
+    }
+    renderTasks();
+  }
+
+  function renderTasks(){
+    tasksList.innerHTML = '';
+    tasks.forEach((t, idx) => {
+      const div = document.createElement('div'); div.className='task';
+      const left = document.createElement('div');
+      left.innerHTML = `<strong>${t.name}</strong><div class="small">Dificultad: ${t.difficulty} | Tiempo restante: <span id="t_${idx}">${t.timeLeft}</span> min</div>`;
+      const right = document.createElement('div');
+      const btnDo = document.createElement('button');
+      btnDo.textContent = 'Realizar';
+      btnDo.onclick = () => doTask(idx);
+      right.appendChild(btnDo);
+      div.appendChild(left); div.appendChild(right);
+      tasksList.appendChild(div);
+    });
+    if(tasks.length===0) tasksList.innerHTML = '<div class="small">No hay tareas. Avanza tiempo para generar nuevas tareas.</div>';
+  }
+
+  function doTask(idx){
+    const t = tasks[idx];
+    if(!t) return;
+    // Probabilidad de error depende de fatiga y dificultad
+    const baseFail = 0.02 * t.difficulty; // base
+    const fatigaFactor = fatiga/100 * 0.5; // hasta +50% prob
+    const probFail = Math.min(0.9, baseFail + fatigaFactor);
+    const rnd = Math.random();
+    // simulate time spent
+    timeMinutes += 10 * t.difficulty;
+    advanceTimeEffects(10 * t.difficulty);
+
+    if(rnd < probFail){
+      // error -> incidente
+      incidents++;
+      incidentsEl.textContent = incidents;
+      logMessage(`Incidente: error en ${t.name} por fatiga (prob ${Math.round(probFail*100)}%). Mensaje educativo: la fatiga reduce la concentración.`, true);
+    } else {
+      completed++;
+      completedEl.textContent = completed;
+      logMessage(`Completaste ${t.name} correctamente. ¡Buen manejo!`, false);
+    }
+    // task removed
+    tasks.splice(idx,1);
+    renderTasks();
+    updateScoreboard();
+  }
+
+  function advanceTimeEffects(minutes){
+    // Fatiga sube con tiempo y tareas; pequeñas pausas ayudan
+    // Baseline: 0.4 fatiga por 10 min
+    const inc = 0.4 * (minutes/10) * (1 + Math.random()*0.4);
+    setFatiga(fatiga + inc);
+    // tasks timeouts
+    tasks.forEach((t, idx)=>{
+      t.timeLeft = Math.max(0, t.timeLeft - Math.round(minutes/1));
+      const span = document.getElementById('t_'+idx);
+      if(span) span.textContent = t.timeLeft;
+      if(t.timeLeft<=0){
+        // auto-fail if overdue
+        incidents++;
+        incidentsEl.textContent = incidents;
+        logMessage(`Incidente: ${t.name} venció el tiempo por acumulación de fatiga y retrasos.`, true);
+        tasks.splice(idx,1);
+        renderTasks();
+      }
+    });
+  }
+
+  // Controls
+  btnCafe.onclick = () => {
+    if(cafeCount<=0){ logMessage('No tienes más café disponible.'); return; }
+    cafeCount--; cafeCountEl.textContent = cafeCount;
+    // Café reduce fatiga temporalmente but increases later (simulate crash)
+    setFatiga(fatiga - 12);
+    logMessage('Tomaste café: mejora temporal de alerta. Recuerda no depender solo de cafeína.');
+    // later "crash" after some time simulated when advancing time
+  };
+
+  btnSiesta.onclick = () => {
+    if(siestaCount<=0){ logMessage('No tienes más siestas programadas.'); return; }
+    siestaCount--; siestaCountEl.textContent = siestaCount;
+    // Siesta reduce más la fatiga pero consume tiempo
+    timeMinutes += 20;
+    advanceTimeEffects(20);
+    setFatiga(fatiga - 25);
+    logMessage('Hiciste una siesta corta: reducción significativa de fatiga. (20 min)');
+  };
+
+  btnPausa.onclick = () => {
+    timeMinutes += 5;
+    advanceTimeEffects(5);
+    setFatiga(fatiga - 6);
+    logMessage('Tomaste una pausa breve: leve mejora.');
+  };
+
+  advanceBtn.onclick = () => {
+    timeMinutes += 10;
+    advanceTimeEffects(10);
+    // Random chance to spawn a new task occasionally
+    if(Math.random() < 0.6 && tasks.length<4){ spawnTasks(1); }
+    logMessage('Avanzaste 10 minutos del turno.');
+  };
+
+  resetBtn.onclick = () => {
+    if(!confirm('¿Reiniciar el prototipo?')) return;
+    // reset everything
+    fatiga = 10; timeMinutes=0; completed=0; incidents=0; cafeCount=3; siestaCount=2; totalFatigaSamples=0; fatigaSum=0; turn=1;
+    tasks = [];
+    spawnTasks(3);
+    setFatiga(fatiga);
+    completedEl.textContent='0'; incidentsEl.textContent='0'; cafeCountEl.textContent='3'; siestaCountEl.textContent='2'; turnNum.textContent='1';
+    logMessage('Juego reiniciado. Buen comienzo de turno.');
+  };
+
+  // Minijuego (reacción)
+  btnStartTest.onclick = () => {
+    if(testPending) return;
+    testPending = true;
+    btnStartTest.disabled = true;
+    btnPress.disabled = true;
+    reactionResult.textContent = '';
+    minigameMsg.textContent = 'Espera...';
+    // random wait 1-3s
+    const wait = 1000 + Math.random()*2000;
+    waitingForGo = true;
+    setTimeout(()=>{
+      // simulate GO but reaction window depends on fatiga (higher fatiga => smaller window)
+      const baseWindow = 800; // ms baseline
+      const windowMs = Math.max(300, baseWindow - (fatiga * 5)); // fatiga 100 => -500ms -> 300ms min
+      minigameMsg.textContent = 'GO! Presiona ahora';
+      goTime = performance.now();
+      btnPress.disabled = false;
+      // auto fail if not pressed
+      setTimeout(()=>{
+        if(btnPress.disabled===false){
+          // not pressed in window
+          btnPress.disabled = true;
+          testPending = false;
+          btnStartTest.disabled = false;
+          reactionResult.textContent = 'No respondiste a tiempo. Probabilidad de error aumenta en tareas.';
+          // penalización: cada fallo incrementa fatiga levemente y cuenta como incidente leve
+          setFatiga(fatiga + 6);
+          incidents++; incidentsEl.textContent = incidents;
+          updateScoreboard();
+        }
+      }, windowMs);
+    }, wait);
+  };
+
+  btnPress.onclick = () => {
+    if(!waitingForGo) { reactionResult.textContent='Presionaste demasiado pronto: espera al GO.'; return; }
+    const rt = performance.now() - goTime;
+    btnPress.disabled = true;
+    testPending = false;
+    waitingForGo = false;
+    btnStartTest.disabled = false;
+    const rtRounded = Math.round(rt);
+    reactionResult.textContent = 'Tu tiempo de reacción: ' + rtRounded + ' ms';
+    // If rt is large relative to threshold -> small penalty
+    const threshold = Math.max(300, 600 - fatiga*2);
+    if(rt > threshold){
+      // slow reaction -> small incident chance
+      incidents++; incidentsEl.textContent = incidents;
+      logMessage('Reacción lenta: la fatiga afecta tus tiempos de respuesta. Considera siesta o pausas.', true);
+      setFatiga(fatiga + 5);
+    } else {
+      logMessage('Buena reacción. Mantén buenas prácticas de sueño.');
+      // small reduction in fatiga por éxito
+      setFatiga(fatiga - 3);
+    }
+    updateScoreboard();
+  };
+
+  function start(){
+    spawnTasks(3);
+    setFatiga(fatiga);
+    completedEl.textContent = '0'; incidentsEl.textContent='0';
+    cafeCountEl.textContent = cafeCount; siestaCountEl.textContent = siestaCount;
+    logMessage('Turno iniciado. Administra tu fatiga y toma decisiones seguras.');
+  }
+
+  start();
+})();
+</script>
+<!-- 🧭 Guía rápida -->
+<div id="guia" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); color:white; display:flex; align-items:center; justify-content:center; z-index:1000;">
+  <div style="background:#222; padding:30px; border-radius:20px; max-width:500px; text-align:left; box-shadow:0 0 20px black;">
+    <h2>💤 Guía rápida</h2>
+    <p><strong>Objetivo:</strong> Termina tu turno nocturno sin llegar a fatiga extrema ni cometer errores.</p>
+    <ul>
+      <li>☕ <b>Tomar café:</b> Reduce fatiga temporalmente.</li>
+      <li>💤 <b>Siesta 20 min:</b> Restaura energía, pero consume tiempo.</li>
+      <li>⏸️ <b>Pausa 5 min:</b> Recupera un poco de energía.</li>
+      <li>📋 <b>Realizar tarea:</b> Ganas puntos, pero aumentas la fatiga.</li>
+      <li>⚡ <b>Prueba de reacción:</b> Evalúa tu nivel de atención.</li>
+    </ul>
+    <p>Si la fatiga llega al máximo, aumenta el riesgo de errores laborales.</p>
+    <button onclick="cerrarGuia()" style="background:#ff8800; color:white; border:none; padding:10px 20px; border-radius:10px; cursor:pointer; margin-top:10px;">Cerrar guía</button>
+  </div>
+</div>
+
+<!-- Botón para abrir la guía -->
+<button onclick="abrirGuia()" style="position:fixed; bottom:20px; right:20px; background:#555; color:white; border:none; border-radius:50%; width:50px; height:50px; font-size:24px; cursor:pointer; z-index:500;">ℹ️</button>
+
+<script>
+function cerrarGuia(){
+  document.getElementById('guia').style.display='none';
+}
+function abrirGuia(){
+  document.getElementById('guia').style.display='flex';
+}
+</script>
+
+</body>
+</html>
