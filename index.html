@@ -221,7 +221,7 @@
   function advanceTimeEffects(minutes){
     // Fatiga sube con tiempo y tareas; pequeñas pausas ayudan
     // Baseline: 0.4 fatiga por 10 min
-    const inc = 0.4 * (minutes/10) * (1 + Math.random()*0.4);
+    const inc = 1.2 * (minutes/10) * (1 + Math.random()*0.4);
     setFatiga(fatiga + inc);
     // tasks timeouts
     tasks.forEach((t, idx)=>{
@@ -383,7 +383,16 @@ function abrirGuia(){
   document.getElementById('guia').style.display='flex';
 }
 </script>
+<div class="controles">
+  <label for="dificultad">Dificultad:</label>
+  <select id="dificultad">
+    <option value="facil">Fácil</option>
+    <option value="medio" selected>Medio</option>
+    <option value="dificil">Difícil</option>
+  </select>
+</div>
 
 </body>
 </html>
+
 
