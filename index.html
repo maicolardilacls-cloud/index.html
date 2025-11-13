@@ -1,9 +1,9 @@
-<!doctype html><!doctype html><!doctype html><!doctype html><!doctype html><!doctype html><!doctype html><!doctype html><!doctype html><!doctype html><!doctype html><!doctype html>
+<!doctype html>
 <html lang="es">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Turno en la Noche - Prototipo</title>
+<title>Turno en la Noche - Prototipo (Completo)</title>
 <style>
   body{font-family:Inter,system-ui,Segoe UI,Arial;margin:0;background:#0f172a;color:#e6eef8;display:flex;flex-direction:column;align-items:center;padding:20px}
   .container{max-width:920px;width:100%}
@@ -28,6 +28,10 @@
   .success{color:#b6f0c6}
   .hidden{display:none}
   .big{font-size:24px;font-weight:700}
+  /* End screen styling */
+  #endScreen{position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.88); display:none; color:white; z-index:2000; align-items:center; justify-content:center; text-align:center;}
+  #endScreen .panel{background:#111; padding:30px; border-radius:16px; width:90%; max-width:480px; box-shadow:0 10px 30px rgba(0,0,0,.7);}
+  #timerEl{font-weight:700}
 </style>
 </head>
 <body>
@@ -57,6 +61,9 @@
         <div class="small" style="margin-top:6px">
           Café restante: <span id="cafeCount">3</span> |
           Siestas: <span id="siestaCount">2</span>
+        </div>
+        <div class="small" style="margin-top:6px">
+          Tiempo restante: <span id="timerEl">04:00</span>
         </div>
       </div>
     </div>
@@ -101,9 +108,49 @@
   </div>
 </div>
 
+<!-- Pantalla de fin (victoria / derrota) -->
+<div id="endScreen" role="dialog" aria-modal="true">
+  <div class="panel">
+    <h2 id="endTitle">Fin del turno</h2>
+    <p id="endMsg">Mensaje</p>
+    <div style="margin-top:18px">
+      <button id="btnRestart" style="background:#ff6600; color:white; border:none; padding:10px 18px; border-radius:10px; cursor:pointer;">Reiniciar juego</button>
+    </div>
+  </div>
+</div>
+
+<!-- Guía rápida (overlay inicial) -->
+<div id="guia" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); color:white; display:flex; align-items:center; justify-content:center; z-index:1000;">
+  <div style="background:#222; padding:30px; border-radius:20px; max-width:500px; text-align:left; box-shadow:0 0 20px black;">
+    <h2>💤 Guía rápida</h2>
+    <p><strong>Objetivo:</strong> Termina tu turno nocturno sin llegar a fatiga extrema ni cometer errores.</p>
+    <ul>
+      <li>☕ <b>Tomar café:</b> Reduce fatiga temporalmente.</li>
+      <li>💤 <b>Siesta 20 min:</b> Restaura energía, pero consume tiempo.</li>
+      <li>⏸️ <b>Pausa 5 min:</b> Recupera un poco de energía.</li>
+      <li>📋 <b>Realizar tarea:</b> Ganas puntos, pero aumentas la fatiga.</li>
+      <li>⚡ <b>Prueba de reacción:</b> Evalúa tu nivel de atención.</li>
+    </ul>
+    <p>Si la fatiga llega al máximo, aumenta el riesgo de errores laborales.</p>
+    <button onclick="cerrarGuia()" style="background:#ff8800; color:white; border:none; padding:10px 20px; border-radius:10px; cursor:pointer; margin-top:10px;">Cerrar guía</button>
+  </div>
+</div>
+
+<!-- Botón para abrir la guía -->
+<button onclick="abrirGuia()" style="position:fixed; bottom:20px; right:20px; background:#555; color:white; border:none; border-radius:50%; width:50px; height:50px; font-size:24px; cursor:pointer; z-index:500;">ℹ️</button>
+
+<div class="controles" style="position:fixed; left:20px; bottom:20px;">
+  <label for="dificultad" class="small">Dificultad:</label>
+  <select id="dificultad">
+    <option value="facil">Fácil</option>
+    <option value="medio" selected>Medio</option>
+    <option value="dificil">Difícil</option>
+  </select>
+</div>
+
 <script>
 (function(){
-  // Estado del juego
+  // ---------- Estado del juego ----------
   let fatiga = 30; // 0-100
   let timeMinutes = 0;
   let tasks = [];
@@ -115,6 +162,13 @@
   let fatigaSum = 0;
   let turn = 1;
 
+  // Temporizador de partida (4 minutos reales)
+  let partidaDuracion = 240; // segundos
+  let tiempoRestante = partidaDuracion;
+  let timerInterval = null;
+  let gameEnded = false;
+
+  // ---------- Elementos ----------
   const fatigaMeter = document.getElementById('fatigaMeter');
   const fatigaValue = document.getElementById('fatigaValue');
   const btnCafe = document.getElementById('btnCafe');
@@ -131,6 +185,7 @@
   const turnNum = document.getElementById('turnNum');
   const fatAvgEl = document.getElementById('fatAvg');
   const failRate = document.getElementById('failRate');
+  const timerEl = document.getElementById('timerEl');
 
   // Minijuego
   const btnStartTest = document.getElementById('btnStartTest');
@@ -141,14 +196,30 @@
   let goTime = 0;
   let waitingForGo = false;
 
+  // End screen
+  const endScreen = document.getElementById('endScreen');
+  const endTitle = document.getElementById('endTitle');
+  const endMsg = document.getElementById('endMsg');
+  const btnRestart = document.getElementById('btnRestart');
+
+  // ---------- Funciones core ----------
   function setFatiga(v){
     fatiga = Math.max(0, Math.min(100, Math.round(v)));
     fatigaMeter.style.width = fatiga + '%';
     fatigaValue.textContent = 'Fatiga: ' + fatiga + '%';
-    // accumulate sample
-    fatigaSum += fatiga;
-    totalFatigaSamples++;
-    updateScoreboard();
+
+    // Detección de fin del juego por fatiga extrema
+    if(fatiga >= 100 && !gameEnded){
+      mostrarFin("❌ Fatiga extrema", "Has alcanzado el 100% de fatiga. Esto provoca errores críticos. Turno terminado.");
+      return;
+    }
+
+    // acumula sample solo si aún no terminó
+    if(!gameEnded){
+      fatigaSum += fatiga;
+      totalFatigaSamples++;
+      updateScoreboard();
+    }
   }
 
   function updateScoreboard(){
@@ -164,11 +235,12 @@
   }
 
   function spawnTasks(n=3){
-    tasks = [];
+    // Si el juego ya terminó, no generar más tareas
+    if(gameEnded) return;
     for(let i=0;i<n;i++){
       const difficulty = 1 + Math.floor(Math.random()*3); // 1..3
       const timeLimit = 20 + difficulty*10; // minutes
-      tasks.push({id:Date.now()+i,name:'Tarea ' + (i+1), difficulty, timeLeft:timeLimit, started:false});
+      tasks.push({id:Date.now()+Math.random(),name:'Tarea ' + (tasks.length+1), difficulty, timeLeft:timeLimit, started:false});
     }
     renderTasks();
   }
@@ -191,103 +263,134 @@
   }
 
   function doTask(idx){
+    if(gameEnded) return;
     const t = tasks[idx];
     if(!t) return;
     // Probabilidad de error depende de fatiga y dificultad
     const baseFail = 0.5 * t.difficulty; // base
-    const fatigaFactor = fatiga/100 * 1.8; // hasta +50% prob
-    const probFail = Math.min(2.9, baseFail + fatigaFactor);
+    const fatigaFactor = (fatiga/100) * 1.8;
+    const probFail = Math.min(0.99, baseFail + fatigaFactor);
     const rnd = Math.random();
     // simulate time spent
-    timeMinutes += 10 * t.difficulty;
-    advanceTimeEffects(10 * t.difficulty);
+    const minutosGastados = 10 * t.difficulty;
+    timeMinutes += minutosGastados;
+    advanceTimeEffects(minutosGastados, false);
 
     if(rnd < probFail){
       // error -> incidente
       incidents++;
       incidentsEl.textContent = incidents;
-      logMessage(`Incidente: error en ${t.name} por fatiga (prob ${Math.round(probFail*100)}%). Mensaje educativo: la fatiga reduce la concentración.`, true);
+      // los incidentes aumentan fatiga levemente
+      setFatiga(fatiga + 8);
+      logMessage(`Incidente: error en ${t.name} por fatiga (prob ${Math.round(probFail*100)}%).`, true);
     } else {
       completed++;
       completedEl.textContent = completed;
       logMessage(`Completaste ${t.name} correctamente. ¡Buen manejo!`, false);
+      // éxito reduce un poco la fatiga por satisfacción
+      setFatiga(fatiga - 3);
     }
-    // task removed
+    // remove task
     tasks.splice(idx,1);
     renderTasks();
     updateScoreboard();
+
+    // Si no quedan tareas y el tiempo aún no terminó puede considerarse buen desempeño,
+    // pero la victoria por tiempo es la condición principal (4 minutos).
   }
 
-  function advanceTimeEffects(minutes){
-  // 🔥 Aumenta la fatiga más rápido con el paso del tiempo
-  const inc = 15.2 * (minutes/10) * (1 + Math.random()*0.8); // antes era 0.4
-  setFatiga(fatiga + inc);
+  /**
+   * advanceTimeEffects(minutes, isResting)
+   * - minutes: número de minutos que avanzan
+   * - isResting: si true => no subir fatiga ni vencer tareas (pausa/siesta)
+   */
+  function advanceTimeEffects(minutes, isResting = false){
+    // Si el juego terminó, no hacer nada
+    if(gameEnded) return;
 
-  // 🔁 Las tareas se vencen más rápido
-  tasks.forEach((t, idx)=>{
-    t.timeLeft = Math.max(0, t.timeLeft - Math.round(minutes * 1.5)); // antes era minutes/1
-    const span = document.getElementById('t_'+idx);
-    if(span) span.textContent = t.timeLeft;
-    if(t.timeLeft <= 0){
-      // auto-fail si se vence
-      incidents++;
-      incidentsEl.textContent = incidents;
-      logMessage(`❌ Incidente: ${t.name} venció el tiempo por exceso de carga.`, true);
-      tasks.splice(idx, 1);
-      renderTasks();
+    // Aumenta fatiga con el paso del tiempo solo si no estamos en descanso
+    if(!isResting){
+      // fórmula moderada para incrementar fatiga
+      const inc = 6 * (minutes/10) * (1 + Math.random()*0.6); // ajustable
+      setFatiga(fatiga + inc);
     }
-  });
-}
 
+    // Avance de tiempo y vencimiento de tareas SOLO si no es descanso
+    if(!isResting){
+      for(let idx = tasks.length - 1; idx >= 0; idx--){
+        const t = tasks[idx];
+        t.timeLeft = Math.max(0, t.timeLeft - Math.round(minutes * 1.5));
+        const span = document.getElementById('t_'+idx);
+        if(span) span.textContent = t.timeLeft;
+        if(t.timeLeft <= 0){
+          // auto-fail si se vence
+          incidents++;
+          incidentsEl.textContent = incidents;
+          // penalización por tarea vencida
+          setFatiga(fatiga + 9);
+          logMessage(`❌ Incidente: ${t.name} venció el tiempo por exceso de carga.`, true);
+          tasks.splice(idx, 1);
+          renderTasks();
+        }
+      }
+    }
 
-  // Controls
+    // Actualizar scoreboard si corresponde
+    updateScoreboard();
+  }
+
+  // ---------- Recursos / botones ----------
   btnCafe.onclick = () => {
+    if(gameEnded) return;
     if(cafeCount<=0){ logMessage('No tienes más café disponible.'); return; }
     cafeCount--; cafeCountEl.textContent = cafeCount;
-    // Café reduce fatiga temporalmente but increases later (simulate crash)
+    // Café reduce fatiga temporalmente
     setFatiga(fatiga - 12);
     logMessage('Tomaste café: mejora temporal de alerta. Recuerda no depender solo de cafeína.');
-    // later "crash" after some time simulated when advancing time
   };
 
   btnSiesta.onclick = () => {
+    if(gameEnded) return;
     if(siestaCount<=0){ logMessage('No tienes más siestas programadas.'); return; }
     siestaCount--; siestaCountEl.textContent = siestaCount;
-    // Siesta reduce más la fatiga pero consume tiempo
+    // Siesta consume tiempo real en el turno, pero no debería penalizar tareas ni incrementar fatiga
     timeMinutes += 20;
-    advanceTimeEffects(0);
-    setFatiga(fatiga - 5);
-    logMessage('Hiciste una siesta corta: reducción significativa de fatiga. (20 min)');
+    advanceTimeEffects(20, true); // modo descanso
+    // Restauración más significativa
+    setFatiga(fatiga - 15);
+    logMessage('Hiciste una siesta corta: restauración significativa de fatiga. (20 min)');
   };
 
   btnPausa.onclick = () => {
+    if(gameEnded) return;
     timeMinutes += 5;
-    advanceTimeEffects(5);
+    // Pausa no debe incrementar fatiga ni vencer tareas
+    advanceTimeEffects(5, true);
     setFatiga(fatiga - 6);
-    logMessage('Tomaste una pausa breve: leve mejora.');
+    logMessage('Tomaste una pausa breve: recuperación sin penalización.');
   };
 
   advanceBtn.onclick = () => {
+    if(gameEnded) return;
     timeMinutes += 10;
-    advanceTimeEffects(10);
-    // Random chance to spawn a new task occasionally
-    if(Math.random() < 0.6 && tasks.length<4){ spawnTasks(1); }
+    advanceTimeEffects(10, false);
+    // Generar nuevas tareas ocasionalmente
+    if(Math.random() < 0.6 && tasks.length < 4){ spawnTasks(1); }
     logMessage('Avanzaste 10 minutos del turno.');
   };
 
   resetBtn.onclick = () => {
+    if(gameEnded){
+      location.reload();
+      return;
+    }
     if(!confirm('¿Reiniciar el prototipo?')) return;
-    // reset everything
-    fatiga = 10; timeMinutes=0; completed=0; incidents=0; cafeCount=3; siestaCount=2; totalFatigaSamples=0; fatigaSum=0; turn=1;
-    tasks = [];
-    spawnTasks(3);
-    setFatiga(fatiga);
-    completedEl.textContent='0'; incidentsEl.textContent='0'; cafeCountEl.textContent='3'; siestaCountEl.textContent='2'; turnNum.textContent='1';
-    logMessage('Juego reiniciado. Buen comienzo de turno.');
+    location.reload();
   };
 
-  // Minijuego (reacción)
+  // ---------- Minijuego (reacción) ----------
   btnStartTest.onclick = () => {
+    if(gameEnded) return;
     if(testPending) return;
     testPending = true;
     btnStartTest.disabled = true;
@@ -298,21 +401,20 @@
     const wait = 1000 + Math.random()*2000;
     waitingForGo = true;
     setTimeout(()=>{
-      // simulate GO but reaction window depends on fatiga (higher fatiga => smaller window)
+      // reaction window depende de fatiga (mayor fatiga => peor ventana)
       const baseWindow = 800; // ms baseline
-      const windowMs = Math.max(300, baseWindow - (fatiga * 15)); // fatiga 100 => -500ms -> 300ms min
+      const windowMs = Math.max(300, baseWindow - (fatiga * 12)); // ajustado
       minigameMsg.textContent = 'GO! Presiona ahora';
       goTime = performance.now();
       btnPress.disabled = false;
-      // auto fail if not pressed
+      // auto fail si no presiona en la ventana
       setTimeout(()=>{
         if(btnPress.disabled===false){
-          // not pressed in window
+          // no presionó en el tiempo
           btnPress.disabled = true;
           testPending = false;
           btnStartTest.disabled = false;
           reactionResult.textContent = 'No respondiste a tiempo. Probabilidad de error aumenta en tareas.';
-          // penalización: cada fallo incrementa fatiga levemente y cuenta como incidente leve
           setFatiga(fatiga + 9);
           incidents++; incidentsEl.textContent = incidents;
           updateScoreboard();
@@ -322,6 +424,7 @@
   };
 
   btnPress.onclick = () => {
+    if(gameEnded) return;
     if(!waitingForGo) { reactionResult.textContent='Presionaste demasiado pronto: espera al GO.'; return; }
     const rt = performance.now() - goTime;
     btnPress.disabled = true;
@@ -330,70 +433,113 @@
     btnStartTest.disabled = false;
     const rtRounded = Math.round(rt);
     reactionResult.textContent = 'Tu tiempo de reacción: ' + rtRounded + ' ms';
-    // If rt is large relative to threshold -> small penalty
     const threshold = Math.max(300, 600 - fatiga*5);
     if(rt > threshold){
-      // slow reaction -> small incident chance
+      // reacción lenta
       incidents++; incidentsEl.textContent = incidents;
       logMessage('Reacción lenta: la fatiga afecta tus tiempos de respuesta. Considera siesta o pausas.', true);
       setFatiga(fatiga + 8);
     } else {
       logMessage('Buena reacción. Mantén buenas prácticas de sueño.');
-      // small reduction in fatiga por éxito
       setFatiga(fatiga - 5);
     }
     updateScoreboard();
   };
 
+  // ---------- Temporizador de 4 minutos ----------
+  function formatTime(s){
+    const mm = String(Math.floor(s/60)).padStart(2,'0');
+    const ss = String(s % 60).padStart(2,'0');
+    return `${mm}:${ss}`;
+  }
+
+  function iniciarTemporizador(){
+    // Asegurar reinicio si ya había uno
+    clearInterval(timerInterval);
+    tiempoRestante = partidaDuracion;
+    timerEl.textContent = formatTime(tiempoRestante);
+    timerInterval = setInterval(() => {
+      if(gameEnded){ clearInterval(timerInterval); return; }
+      tiempoRestante--;
+      timerEl.textContent = formatTime(tiempoRestante);
+
+      // cada 30 segundos aproximadamente generar un pequeño avance temporal
+      // (esto es opcional; aquí solo actualizamos la visual)
+      if(tiempoRestante <= 0){
+        clearInterval(timerInterval);
+        if(!gameEnded){
+          mostrarFin("🎉 Turno completado", "Has logrado completar los 4 minutos del turno. ¡Buena gestión de la energía!");
+        }
+      }
+    }, 1000);
+  }
+
+  // ---------- Mostrar fin del juego ----------
+  function mostrarFin(title, msg){
+    gameEnded = true;
+    // detener timers
+    clearInterval(timerInterval);
+
+    // desactivar botones (mantener el reinicio habilitado)
+    document.querySelectorAll("button").forEach(b => {
+      b.disabled = true;
+      b.style.opacity = '0.9';
+    });
+    // habilitar el botón reiniciar en la pantalla de fin
+    btnRestart.disabled = false;
+
+    // mostrar mensaje
+    endTitle.textContent = title;
+    endMsg.textContent = msg;
+    endScreen.style.display = 'flex';
+  }
+
+  btnRestart.onclick = () => {
+    location.reload();
+  };
+
+  // ---------- Inicio / reinicio ----------
   function start(){
+    // reset estado
+    tasks = [];
+    completed = 0;
+    incidents = 0;
+    cafeCount = 3;
+    siestaCount = 2;
+    totalFatigaSamples = 0;
+    fatigaSum = 0;
+    turn = 1;
+    gameEnded = false;
+
+    completedEl.textContent = '0';
+    incidentsEl.textContent = '0';
+    cafeCountEl.textContent = cafeCount;
+    siestaCountEl.textContent = siestaCount;
+    turnNum.textContent = turn;
+    reactionResult.textContent = '';
+    minigameMsg.textContent = 'Presiona "Iniciar prueba" para comenzar';
+    document.getElementById('guia').style.display = 'flex';
+
+    // generar tareas iniciales
     spawnTasks(3);
     setFatiga(fatiga);
-    completedEl.textContent = '0'; incidentsEl.textContent='0';
-    cafeCountEl.textContent = cafeCount; siestaCountEl.textContent = siestaCount;
+
+    // iniciar temporizador de 4 minutos
+    iniciarTemporizador();
     logMessage('Turno iniciado. Administra tu fatiga y toma decisiones seguras.');
   }
 
+  // controles GUI de guía
+  window.cerrarGuia = function(){ document.getElementById('guia').style.display='none'; };
+  window.abrirGuia = function(){ document.getElementById('guia').style.display='flex'; };
+
+  // iniciar
   start();
+
+  // seguridad: cuando la ventana pierde foco no detener el timer (se cuenta tiempo real)
+  // Puedes añadir listeners adicionales si quieres pausar en background.
+
 })();
 </script>
-<!-- 🧭 Guía rápida -->
-<div id="guia" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); color:white; display:flex; align-items:center; justify-content:center; z-index:1000;">
-  <div style="background:#222; padding:30px; border-radius:20px; max-width:500px; text-align:left; box-shadow:0 0 20px black;">
-    <h2>💤 Guía rápida</h2>
-    <p><strong>Objetivo:</strong> Termina tu turno nocturno sin llegar a fatiga extrema ni cometer errores.</p>
-    <ul>
-      <li>☕ <b>Tomar café:</b> Reduce fatiga temporalmente.</li>
-      <li>💤 <b>Siesta 20 min:</b> Restaura energía, pero consume tiempo.</li>
-      <li>⏸️ <b>Pausa 5 min:</b> Recupera un poco de energía.</li>
-      <li>📋 <b>Realizar tarea:</b> Ganas puntos, pero aumentas la fatiga.</li>
-      <li>⚡ <b>Prueba de reacción:</b> Evalúa tu nivel de atención.</li>
-    </ul>
-    <p>Si la fatiga llega al máximo, aumenta el riesgo de errores laborales.</p>
-    <button onclick="cerrarGuia()" style="background:#ff8800; color:white; border:none; padding:10px 20px; border-radius:10px; cursor:pointer; margin-top:10px;">Cerrar guía</button>
-  </div>
-</div>
-
-<!-- Botón para abrir la guía -->
-<button onclick="abrirGuia()" style="position:fixed; bottom:20px; right:20px; background:#555; color:white; border:none; border-radius:50%; width:50px; height:50px; font-size:24px; cursor:pointer; z-index:500;">ℹ️</button>
-
-<script>
-function cerrarGuia(){
-  document.getElementById('guia').style.display='none';
-}
-function abrirGuia(){
-  document.getElementById('guia').style.display='flex';
-}
-</script>
-<div class="controles">
-  <label for="dificultad">Dificultad:</label>
-  <select id="dificultad">
-    <option value="facil">Fácil</option>
-    <option value="medio" selected>Medio</option>
-    <option value="dificil">Difícil</option>
-  </select>
-</div>
-
 </body>
 </html>
-
-
