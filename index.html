@@ -272,10 +272,30 @@
 
   btnPausa.onclick = () => {
     timeMinutes += 5;
-    advanceTimeEffects(5);
-    setFatiga(fatiga - 6);
-    logMessage('Tomaste una pausa breve: leve mejora.');
-  };
+    function advanceTimeEffects(minutes, isResting=false){
+  // Solo aumentar fatiga si NO está descansando
+  if(!isResting){
+    const inc = 15.2 * (minutes/10) * (1 + Math.random()*0.8);
+    setFatiga(fatiga + inc);
+  }
+
+  // Solo hacer avanzar tareas si NO está descansando
+  if(!isResting){
+    tasks.forEach((t, idx)=>{
+      t.timeLeft = Math.max(0, t.timeLeft - Math.round(minutes * 1.5));
+      const span = document.getElementById('t_'+idx);
+      if(span) span.textContent = t.timeLeft;
+      if(t.timeLeft <= 0){
+        incidents++;
+        incidentsEl.textContent = incidents;
+        logMessage(`❌ Incidente: ${t.name} venció el tiempo por exceso de carga.`, true);
+        tasks.splice(idx, 1);
+        renderTasks();
+      }
+    });
+  }
+}
+
 
   advanceBtn.onclick = () => {
     timeMinutes += 10;
@@ -405,6 +425,7 @@ function abrirGuia(){
 
 </body>
 </html>
+
 
 
 
