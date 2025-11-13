@@ -1,4 +1,4 @@
-<!doctype html><!doctype html><!doctype html><!doctype html>
+<!doctype html><!doctype html><!doctype html><!doctype html><!doctype html>
 <html lang="es">
 <head>
 <meta charset="utf-8" />
@@ -194,8 +194,8 @@
     const t = tasks[idx];
     if(!t) return;
     // Probabilidad de error depende de fatiga y dificultad
-    const baseFail = 0.2 * t.difficulty; // base
-    const fatigaFactor = fatiga/100 * 1.5; // hasta +50% prob
+    const baseFail = 0.5 * t.difficulty; // base
+    const fatigaFactor = fatiga/100 * 1.8; // hasta +50% prob
     const probFail = Math.min(2.9, baseFail + fatigaFactor);
     const rnd = Math.random();
     // simulate time spent
