@@ -1,4 +1,4 @@
-<!doctype html><!doctype html><!doctype html><!doctype html><!doctype html><!doctype html><!doctype html><!doctype html><!doctype html><!doctype html><!doctype html>
+<!doctype html><!doctype html><!doctype html><!doctype html><!doctype html><!doctype html><!doctype html><!doctype html><!doctype html><!doctype html><!doctype html><!doctype html>
 <html lang="es">
 <head>
 <meta charset="utf-8" />
@@ -255,24 +255,15 @@
     siestaCount--; siestaCountEl.textContent = siestaCount;
     // Siesta reduce más la fatiga pero consume tiempo
     timeMinutes += 20;
-    advanceTimeEffects(minutes, isSleeping=false){
-  if(!isSleeping){
-    const inc = 15.2 * (minutes/10) * (1 + Math.random()*0.8);
-    setFatiga(fatiga + inc);
-  }
-
-  if(!isSleeping){
-    tasks.forEach((t, idx)=>{
-      t.timeLeft = Math.max(0, t.timeLeft - Math.round(minutes * 1.5));
-      ...
-    });
-  }
-}
+    advanceTimeEffects(0);
+    setFatiga(fatiga - 5);
+    logMessage('Hiciste una siesta corta: reducción significativa de fatiga. (20 min)');
+  };
 
   btnPausa.onclick = () => {
     timeMinutes += 5;
     advanceTimeEffects(5);
-    setFatiga(fatiga - 0);
+    setFatiga(fatiga - 6);
     logMessage('Tomaste una pausa breve: leve mejora.');
   };
 
@@ -345,7 +336,7 @@
       // slow reaction -> small incident chance
       incidents++; incidentsEl.textContent = incidents;
       logMessage('Reacción lenta: la fatiga afecta tus tiempos de respuesta. Considera siesta o pausas.', true);
-      setFatiga(fatiga - 5);
+      setFatiga(fatiga + 8);
     } else {
       logMessage('Buena reacción. Mantén buenas prácticas de sueño.');
       // small reduction in fatiga por éxito
