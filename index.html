@@ -1,4 +1,4 @@
-<!doctype html>
+<!doctype html><!doctype html>
 <html lang="es">
 <head>
 <meta charset="utf-8" />
@@ -219,25 +219,26 @@
   }
 
   function advanceTimeEffects(minutes){
-    // Fatiga sube con tiempo y tareas; pequeñas pausas ayudan
-    // Baseline: 0.4 fatiga por 10 min
-    const inc = 1.2 * (minutes/10) * (1 + Math.random()*0.4);
-    setFatiga(fatiga + inc);
-    // tasks timeouts
-    tasks.forEach((t, idx)=>{
-      t.timeLeft = Math.max(0, t.timeLeft - Math.round(minutes/1));
-      const span = document.getElementById('t_'+idx);
-      if(span) span.textContent = t.timeLeft;
-      if(t.timeLeft<=0){
-        // auto-fail if overdue
-        incidents++;
-        incidentsEl.textContent = incidents;
-        logMessage(`Incidente: ${t.name} venció el tiempo por acumulación de fatiga y retrasos.`, true);
-        tasks.splice(idx,1);
-        renderTasks();
-      }
-    });
-  }
+  // 🔥 Aumenta la fatiga más rápido con el paso del tiempo
+  const inc = 1.2 * (minutes/10) * (1 + Math.random()*0.8); // antes era 0.4
+  setFatiga(fatiga + inc);
+
+  // 🔁 Las tareas se vencen más rápido
+  tasks.forEach((t, idx)=>{
+    t.timeLeft = Math.max(0, t.timeLeft - Math.round(minutes * 1.5)); // antes era minutes/1
+    const span = document.getElementById('t_'+idx);
+    if(span) span.textContent = t.timeLeft;
+    if(t.timeLeft <= 0){
+      // auto-fail si se vence
+      incidents++;
+      incidentsEl.textContent = incidents;
+      logMessage(`❌ Incidente: ${t.name} venció el tiempo por exceso de carga.`, true);
+      tasks.splice(idx, 1);
+      renderTasks();
+    }
+  });
+}
+
 
   // Controls
   btnCafe.onclick = () => {
