@@ -1,4 +1,4 @@
-<!doctype html><!doctype html>
+<!doctype html><!doctype html><!doctype html>
 <html lang="es">
 <head>
 <meta charset="utf-8" />
@@ -299,8 +299,8 @@
     waitingForGo = true;
     setTimeout(()=>{
       // simulate GO but reaction window depends on fatiga (higher fatiga => smaller window)
-      const baseWindow = 800; // ms baseline
-      const windowMs = Math.max(300, baseWindow - (fatiga * 5)); // fatiga 100 => -500ms -> 300ms min
+      const baseWindow = 500; // ms baseline
+      const windowMs = Math.max(300, baseWindow - (fatiga * 15)); // fatiga 100 => -500ms -> 300ms min
       minigameMsg.textContent = 'GO! Presiona ahora';
       goTime = performance.now();
       btnPress.disabled = false;
@@ -313,7 +313,7 @@
           btnStartTest.disabled = false;
           reactionResult.textContent = 'No respondiste a tiempo. Probabilidad de error aumenta en tareas.';
           // penalización: cada fallo incrementa fatiga levemente y cuenta como incidente leve
-          setFatiga(fatiga + 6);
+          setFatiga(fatiga + 16);
           incidents++; incidentsEl.textContent = incidents;
           updateScoreboard();
         }
@@ -331,16 +331,16 @@
     const rtRounded = Math.round(rt);
     reactionResult.textContent = 'Tu tiempo de reacción: ' + rtRounded + ' ms';
     // If rt is large relative to threshold -> small penalty
-    const threshold = Math.max(300, 600 - fatiga*2);
+    const threshold = Math.max(300, 600 - fatiga*5);
     if(rt > threshold){
       // slow reaction -> small incident chance
       incidents++; incidentsEl.textContent = incidents;
       logMessage('Reacción lenta: la fatiga afecta tus tiempos de respuesta. Considera siesta o pausas.', true);
-      setFatiga(fatiga + 5);
+      setFatiga(fatiga + 15);
     } else {
       logMessage('Buena reacción. Mantén buenas prácticas de sueño.');
       // small reduction in fatiga por éxito
-      setFatiga(fatiga - 3);
+      setFatiga(fatiga - 13);
     }
     updateScoreboard();
   };
